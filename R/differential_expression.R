@@ -71,28 +71,38 @@ DESeq2DETest <- function(
 #' @examples
 #' toydata = mydeg(sco) 
 
-mydeg <- function(sco) {
-    exp.curr1 = sco@assays$RNA@counts
-    meta.dt1 = sco@meta.data %>%
-        as.data.table() %>%
-        .[,.(binaryResponse=ifelse(response %in% c("CR", "PR"),1 ,0) , patient=patient.name)] 
-    
-    meta.curr = list()
-    exp.curr2 = list()
-    for(patient in unique(meta.dt1$patient)){
-        inx = which(meta.dt1$patient==patient)
-        exp.curr2[[patient]] = rowSums(exp.curr1[,inx],na.rm=T)
-        meta.curr[[patient]] = meta.dt1[inx[1],]
-    }
-    meta.dt = do.call(rbind, meta.curr)
-    exp.curr = t(do.call(rbind, exp.curr2))
-    responders = meta.dt[binaryResponse==1]$patient
-    nonresponders = meta.dt[binaryResponse==0]$patient
-    deseq.out = DESeq2DETest(data.use=exp.curr[,c(responders,nonresponders)], cells.1=responders, cells.2=nonresponders)
-    deseq.dt = deseq.out %>%
-        as.data.frame() %>%
-        mutate(gene=rownames(.)) %>%
-        data.table() %>% 
-        .[order(pvalue)]
-    deseq.dt
+mydeg <- function(sco, 
+  responder.string=c("CR", "PR","responder", "responders"), 
+  nonresponder.string=c("PD", "SD", "Non-Responder", "Non-Responders") 
+  ) {
+  responder.string = toupper(responder.string)
+  nonresponder.string = toupper(nonresponder.string)
+  sco$response = toupper(sco$response)
+  valid.string = c(responder.string, nonresponder.string)
+  sel.inx = which(sco$response %in% c(responder.string, nonresponder.string))
+  if(length(sel.inx) < ncol(sco))
+    sco = sco[, sel.inx]
+  exp.curr1 = sco@assays$RNA@counts
+  meta.dt1 = sco@meta.data %>%
+  as.data.table() %>%
+  .[,.(binaryResponse=ifelse(response %in% responder.string,1 ,0) , patient=patient.name)] 
+
+  meta.curr = list()
+  exp.curr2 = list()
+  for(patient in unique(meta.dt1$patient)){
+    inx = which(meta.dt1$patient==patient)
+    exp.curr2[[patient]] = rowSums(exp.curr1[,inx],na.rm=T)
+    meta.curr[[patient]] = meta.dt1[inx[1],]
+  }
+  meta.dt = do.call(rbind, meta.curr)
+  exp.curr = t(do.call(rbind, exp.curr2))
+  responders = meta.dt[binaryResponse==1]$patient
+  nonresponders = meta.dt[binaryResponse==0]$patient
+  deseq.out = DESeq2DETest(data.use=exp.curr[,c(responders,nonresponders)], cells.1=responders, cells.2=nonresponders)
+  deseq.dt = deseq.out %>%
+  as.data.frame() %>%
+  mutate(gene=rownames(.)) %>%
+  data.table() %>% 
+  .[order(pvalue)]
+  deseq.dt
 }
