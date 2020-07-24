@@ -160,3 +160,48 @@ mySingleR <- function(test, ref,
     trained=trained)
     
 }
+
+
+
+
+
+myFastCor.multicores = function(x,y, method="spearman", num=20000, nthreads=1){
+    if(is.null(num))  num=0
+    if(nthreads>1){
+      split.size = floor(ncol(y)/nthreads)
+        splits = lapply(seq(nthreads), function(tt){
+          start = (tt-1)* split.size +1
+          end = ifelse(tt< nthreads, tt*split.size, ncol(y))
+          seq(start, end)
+        })
+        out = mclapply(splits, function(tt) myFastCor(x=x,y=y[,tt], method=method, num=num), mc.cores = nthreads) %>%
+            do.call(cbind,.) %>% set_colnames(colnames(y))
+    }else{
+        out = myFastCor(x=x,y=y, method=method, num=num)
+    }
+    out
+}
+
+
+myFastCor <- function(x,y, method="spearman", num=20000) {
+    if (ncol(x) < num | ncol(y) < num){
+        out = cor(x, y, method="spearman", use="pairwise.complete.obs")
+    }else{
+        if(method=="spearman"){
+            x%<>%
+                apply(.,2, rank, na.last="keep")
+            y%<>%
+                apply(.,2, rank, na.last="keep")
+        }
+        out = WGCNA::cor(x, y, use="pairwise.complete.obs")
+    }
+    out
+}
+calcCorEnrich <- function(x,y, num=NULL, nthreads=1) {
+    require(magrittr)
+  rownames(x) %<>% toupper
+  rownames(y) %<>% toupper
+    common = intersect(rownames(x), rownames(y))
+    myFastCor.multicores(x[common,], y[common,], num=num, nthreads = nthreads)
+}
+

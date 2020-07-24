@@ -70,34 +70,41 @@ DESeq2DETest <- function(
 #' @export
 #' @examples
 #' toydata = mydeg(sco) 
-
 mydeg <- function(sco, 
   responder.string=c("CR", "PR","responder", "responders"), 
   nonresponder.string=c("PD", "SD", "Non-Responder", "Non-Responders") 
   ) {
   responder.string = toupper(responder.string)
   nonresponder.string = toupper(nonresponder.string)
-  sco$response = toupper(sco$response)
+  temp= toupper(sco$response) %>%
+  gsub(" ", ., replacement="")
+  sco$response = temp
   valid.string = c(responder.string, nonresponder.string)
   sel.inx = which(sco$response %in% c(responder.string, nonresponder.string))
-  if(length(sel.inx) < ncol(sco))
-    sco = sco[, sel.inx]
   exp.curr1 = sco@assays$RNA@counts
   meta.dt1 = sco@meta.data %>%
-  as.data.table() %>%
-  .[,.(binaryResponse=ifelse(response %in% responder.string,1 ,0) , patient=patient.name)] 
+  as.data.table()
+  if(length(sel.inx) < ncol(sco)){
+    exp.curr1 = exp.curr1[, sel.inx]
+    meta.dt1=meta.dt1[sel.inx,]
+  }
+  meta.dt1=meta.dt1[,.(binaryResponse=ifelse(response %in% responder.string,1 ,0) , patient=patient.name)] 
 
   meta.curr = list()
   exp.curr2 = list()
   for(patient in unique(meta.dt1$patient)){
     inx = which(meta.dt1$patient==patient)
-    exp.curr2[[patient]] = rowSums(exp.curr1[,inx],na.rm=T)
+    if(length(inx)> 1){
+      exp.curr2[[patient]] = rowSums(exp.curr1[,inx],na.rm=T)
+    }else{
+      exp.curr2[[patient]] = exp.curr1[,inx]
+    }
     meta.curr[[patient]] = meta.dt1[inx[1],]
   }
   meta.dt = do.call(rbind, meta.curr)
-  exp.curr = t(do.call(rbind, exp.curr2))
-  responders = meta.dt[binaryResponse==1]$patient
-  nonresponders = meta.dt[binaryResponse==0]$patient
+  exp.curr = do.call(cbind, exp.curr2) %>% round
+  responders = meta.dt[binaryResponse==1]$patient %>% as.character
+  nonresponders = meta.dt[binaryResponse==0]$patient%>% as.character
   deseq.out = DESeq2DETest(data.use=exp.curr[,c(responders,nonresponders)], cells.1=responders, cells.2=nonresponders)
   deseq.dt = deseq.out %>%
   as.data.frame() %>%
@@ -106,3 +113,4 @@ mydeg <- function(sco,
   .[order(pvalue)]
   deseq.dt
 }
+

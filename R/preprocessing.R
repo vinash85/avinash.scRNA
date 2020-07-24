@@ -42,3 +42,33 @@ library(nlme)
             extract_nmle_table(m1)
         },error=  function(e) rep(NA,4))
 }
+
+
+preprocessing.std.seurat <- . %>%     Seurat::NormalizeData(verbose = FALSE) %>%
+    FindVariableFeatures(selection.method = "vst", nfeatures = 2000) %>% 
+    ScaleData(verbose = FALSE) %>% 
+    RunPCA(pc.genes = pbmc@var.genes, npcs = 50, verbose = FALSE)%>%
+    RunUMAP(reduction = "pca", dims = 1:50) %>% 
+    RunTSNE(reduction = "pca", dims = 1:50) %>% 
+    FindNeighbors(reduction = "pca", dims = 1:50) %>% 
+    FindClusters(resolution = 0.5) %>% 
+    identity()
+
+
+preprocessing.harmony.seurat <- function(sco, num.dim=50, patient.name="patient.name"){
+    require(Seurat)
+    require(magrittr)
+    require(harmony)
+    sco[["percent.mt"]] <- PercentageFeatureSet(sco, pattern = "^MT-")
+    sco %>%   subset(subset = percent.mt >= 4) %>%
+    Seurat::NormalizeData(verbose = FALSE) %>%
+    FindVariableFeatures(selection.method = "vst", nfeatures = 2000) %>% 
+    ScaleData(verbose = FALSE) %>% 
+    RunPCA(pc.genes = sco@var.genes, npcs = num.dim, verbose = FALSE)%>%
+    RunHarmony(patient.name) %>%
+    RunUMAP(reduction = "harmony", dims = seq(num.dim)) %>% 
+    RunTSNE(reduction = "harmony", dims = seq(num.dim)) %>% 
+    FindNeighbors(reduction = "harmony", dims = seq(num.dim)) %>% 
+    FindClusters(resolution = 0.5) %>% 
+    identity()
+}
