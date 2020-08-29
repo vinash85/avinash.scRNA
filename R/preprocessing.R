@@ -44,15 +44,18 @@ library(nlme)
 }
 
 
-preprocessing.std.seurat <- . %>%     Seurat::NormalizeData(verbose = FALSE) %>%
-    FindVariableFeatures(selection.method = "vst", nfeatures = 2000) %>% 
-    ScaleData(verbose = FALSE) %>% 
-    RunPCA(pc.genes = pbmc@var.genes, npcs = 50, verbose = FALSE)%>%
-    RunUMAP(reduction = "pca", dims = 1:50) %>% 
-    RunTSNE(reduction = "pca", dims = 1:50) %>% 
-    FindNeighbors(reduction = "pca", dims = 1:50) %>% 
-    FindClusters(resolution = 0.5) %>% 
-    identity()
+preprocessing.standard.seurat <- function(sco, num.dim=50) {
+
+  sco %<>% Seurat::NormalizeData(verbose = FALSE) %>%
+  FindVariableFeatures(selection.method = "vst", nfeatures = 2000) %>% 
+  ScaleData(verbose = FALSE) 
+  sco %>% RunPCA(pc.genes = sco@meta.data, npcs = num.dim, verbose = FALSE)%>%
+  RunUMAP(reduction = "pca", dims = seq(num.dim)) %>% 
+  RunTSNE(reduction = "pca", dims = seq(num.dim)) %>% 
+  FindNeighbors(reduction = "pca", dims = seq(num.dim)) %>% 
+  FindClusters(resolution = 0.5) %>% 
+  identity()
+}
 
 
 preprocessing.harmony.seurat <- function(sco, num.dim=50, patient.name="patient.name"){
